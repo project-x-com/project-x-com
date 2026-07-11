@@ -90,7 +90,7 @@ title.Parent = mainFrame
 
 local subtitle = Instance.new("TextLabel")
 subtitle.BackgroundTransparency = 1
-title.Size = UDim2.fromScale(1, 0.06)
+subtitle.Size = UDim2.fromScale(1, 0.06)
 subtitle.Position = UDim2.fromScale(0, 0.47)
 subtitle.Font = Enum.Font.Gotham
 subtitle.Text = "Loading Simulation Module"
@@ -137,9 +137,12 @@ status.BackgroundTransparency = 1
 status.Position = UDim2.fromScale(0, 0.78)
 status.Size = UDim2.fromScale(1, 0.08)
 status.Font = Enum.Font.GothamSemibold
-status.TextScaled = true
+status.TextScaled = false
+status.TextSize = 20
 status.TextColor3 = Color3.fromRGB(220, 235, 255)
 status.Text = "Initialisiere..."
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.TextYAlignment = Enum.TextYAlignment.Center
 status.Parent = mainFrame
 
 local tip = Instance.new("TextLabel")
@@ -147,11 +150,30 @@ tip.BackgroundTransparency = 1
 tip.Position = UDim2.fromScale(0, 0.87)
 tip.Size = UDim2.fromScale(1, 0.06)
 tip.Font = Enum.Font.Gotham
-tip.TextScaled = true
+tip.TextScaled = false
+tip.TextSize = 16
 tip.TextColor3 = Color3.fromRGB(140, 185, 255)
 tip.TextTransparency = 0.25
 tip.Text = "Tipp: Bleibe in Bewegung für schnelle Reaktion."
+tip.TextXAlignment = Enum.TextXAlignment.Left
+tip.TextYAlignment = Enum.TextYAlignment.Center
 tip.Parent = mainFrame
+
+local skipButton = Instance.new("TextButton")
+skipButton.Size = UDim2.fromScale(0.2, 0.065)
+skipButton.Position = UDim2.fromScale(0.75, 0.85)
+skipButton.AnchorPoint = Vector2.new(0.5, 0.5)
+skipButton.BackgroundColor3 = Color3.fromRGB(20, 100, 170)
+skipButton.BorderSizePixel = 0
+skipButton.Font = Enum.Font.GothamSemibold
+skipButton.Text = "Skip"
+skipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+skipButton.TextScaled = true
+skipButton.Parent = mainFrame
+
+local skipCorner = Instance.new("UICorner")
+skipCorner.CornerRadius = UDim.new(0, 12)
+skipCorner.Parent = skipButton
 
 local scanning = Instance.new("Frame")
 scanning.Size = UDim2.new(1, 0, 0.02, 0)
@@ -166,7 +188,7 @@ scanCorner.CornerRadius = UDim.new(1, 0)
 scanCorner.Parent = scanning
 
 local scanTween = TweenService:Create(scanning, TweenInfo.new(1.6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), {
-    Position = UDim2.fromScale(0, 0.56)
+    Position = UDim2.fromScale(-1, 0.56)
 })
 scanTween:Play()
 
@@ -187,22 +209,52 @@ local tips = {
 }
 
 local running = true
+local ended = false
 
-task.spawn(function()
-    while running and gui.Parent do
-        local currentText = status.Text:gsub("%.*$", "")
-        for dots = 0, 3 do
-            if not running or not gui.Parent then
-                break
-            end
-            status.Text = currentText .. string.rep(".", dots)
-            RunService.RenderStepped:Wait()
-        end
+local function endLoading(skip)
+    if ended then
+        return
     end
+    ended = true
+    running = false
+
+    if skip then
+        status.Text = "Übersprungen. Willkommen."
+        tip.Text = "Viel Spaß im Spiel!"
+    else
+        status.Text = "Bereit! Willkommen."
+        tip.Text = "Loading abgeschlossen."
+    end
+
+    local fadeInfo = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(mainFrame, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(title, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(subtitle, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(status, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(tip, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(barHolder, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(barFill, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(barGlow, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(skipButton, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(logo, fadeInfo, {ImageTransparency = 1}):Play()
+    TweenService:Create(logoGlow, fadeInfo, {BackgroundTransparency = 1}):Play()
+
+    task.delay(0.8, function()
+        if blur and blur.Parent then
+            blur:Destroy()
+        end
+        if gui and gui.Parent then
+            gui:Destroy()
+        end
+    end)
+end
+
+skipButton.MouseButton1Click:Connect(function()
+    endLoading(true)
 end)
 
 task.spawn(function()
-    while gui.Parent do
+    while running and gui.Parent do
         TweenService:Create(logoGlow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
             BackgroundTransparency = 0.85
         }):Play()
@@ -217,9 +269,13 @@ task.spawn(function()
 end)
 
 for i = 1, 100 do
+    if ended then
+        break
+    end
+
     local progress = i / 100
     local labelIndex = math.clamp(math.ceil(i / 17), 1, #messages)
-    status.Text = messages[labelIndex]
+    status.Text = string.format("%s (%d%%)", messages[labelIndex], math.floor(progress * 100))
     tip.Text = tips[math.random(1, #tips)]
 
     TweenService:Create(barFill, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -233,24 +289,6 @@ for i = 1, 100 do
     task.wait(0.06)
 end
 
-status.Text = "Bereit! Willkommen."
-tip.Text = "Loading abgeschlossen."
-
-task.wait(0.8)
-running = false
-
-local fadeInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-TweenService:Create(mainFrame, fadeInfo, {BackgroundTransparency = 1}):Play()
-TweenService:Create(title, fadeInfo, {TextTransparency = 1}):Play()
-TweenService:Create(subtitle, fadeInfo, {TextTransparency = 1}):Play()
-TweenService:Create(status, fadeInfo, {TextTransparency = 1}):Play()
-TweenService:Create(tip, fadeInfo, {TextTransparency = 1}):Play()
-TweenService:Create(barHolder, fadeInfo, {BackgroundTransparency = 1}):Play()
-TweenService:Create(barFill, fadeInfo, {BackgroundTransparency = 1}):Play()
-TweenService:Create(barGlow, fadeInfo, {BackgroundTransparency = 1}):Play()
-TweenService:Create(logo, fadeInfo, {ImageTransparency = 1}):Play()
-TweenService:Create(logoGlow, fadeInfo, {BackgroundTransparency = 1}):Play()
-
-task.wait(1.1)
-blur:Destroy()
-gui:Destroy()
+if not ended then
+    endLoading(false)
+end
