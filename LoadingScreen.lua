@@ -102,67 +102,40 @@ local fillCorner = Instance.new("UICorner")
 fillCorner.CornerRadius = UDim.new(1, 0)
 fillCorner.Parent = barFill
 
-local barGlow = Instance.new("Frame")
-barGlow.Size = UDim2.new(0.02, 0, 1.4, 0)
-barGlow.Position = UDim2.new(0, 0, -0.2, 0)
-barGlow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-barGlow.BackgroundTransparency = 0.75
-barGlow.BorderSizePixel = 0
-barGlow.Parent = barHolder
-
-local glowCorner2 = Instance.new("UICorner")
-glowCorner2.CornerRadius = UDim.new(1, 0)
-glowCorner2.Parent = barGlow
-
 local status = Instance.new("TextLabel")
 status.BackgroundTransparency = 1
-status.Size = UDim2.new(0.7, 0, 0.06, 0)
-status.Position = UDim2.new(0.08, 0, 0.78, 0)
+status.Size = UDim2.new(0.9, 0, 0.12, 0)
+status.Position = UDim2.new(0.5, 0, 0.58, 0)
+status.AnchorPoint = Vector2.new(0.5, 0)
 status.Font = Enum.Font.GothamSemibold
 status.TextScaled = false
-status.TextSize = 18
+status.TextSize = 24
 status.TextColor3 = Color3.fromRGB(223, 236, 255)
-status.Text = "Initialisiere..."
-status.TextXAlignment = Enum.TextXAlignment.Left
+status.Text = "Loading assets..."
+status.TextXAlignment = Enum.TextXAlignment.Center
 status.TextYAlignment = Enum.TextYAlignment.Center
 status.Parent = mainFrame
 
-local skipButton = Instance.new("TextButton")
-skipButton.Size = UDim2.new(0.22, 0, 0.08, 0)
-skipButton.Position = UDim2.new(0.5, 0, 0.88, 0)
-skipButton.AnchorPoint = Vector2.new(0.5, 0.5)
-skipButton.BackgroundColor3 = Color3.fromRGB(18, 108, 195)
-skipButton.BorderSizePixel = 0
-skipButton.Font = Enum.Font.GothamSemibold
-skipButton.Text = "Skip"
-skipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-skipButton.TextScaled = true
-skipButton.Parent = mainFrame
-
-local skipCorner = Instance.new("UICorner")
-skipCorner.CornerRadius = UDim.new(0, 14)
-skipCorner.Parent = skipButton
-
 local messages = {
-    "Lade Assets...",
-    "Erstelle Spielwelt...",
-    "Lade externe Module...",
-    "Verbinde mit Server...",
-    "Synchronisiere Benutzerdaten...",
-    "Kalibriere Darstellung..."
+    "Loading assets...",
+    "Loading textures...",
+    "Loading sounds...",
+    "Loading scripts...",
+    "Syncing data...",
+    "Preparing game world..."
 }
 
 local running = true
 local ended = false
 
-local function endLoading(skip)
+local function endLoading()
     if ended then
         return
     end
     ended = true
     running = false
 
-    status.Text = skip and "Übersprungen. Willkommen." or "Bereit! Willkommen."
+    status.Text = "Ready to play!"
 
     local fadeInfo = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     TweenService:Create(mainFrame, fadeInfo, {BackgroundTransparency = 1}):Play()
@@ -171,8 +144,6 @@ local function endLoading(skip)
     TweenService:Create(status, fadeInfo, {TextTransparency = 1}):Play()
     TweenService:Create(barHolder, fadeInfo, {BackgroundTransparency = 1}):Play()
     TweenService:Create(barFill, fadeInfo, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(barGlow, fadeInfo, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(skipButton, fadeInfo, {BackgroundTransparency = 1}):Play()
     TweenService:Create(logo, fadeInfo, {ImageTransparency = 1}):Play()
 
     task.delay(0.8, function()
@@ -185,10 +156,6 @@ local function endLoading(skip)
     end)
 end
 
-skipButton.MouseButton1Click:Connect(function()
-    endLoading(true)
-end)
-
 task.spawn(function()
     while running and gui.Parent do
         TweenService:Create(logo, TweenInfo.new(4, Enum.EasingStyle.Linear), {
@@ -198,26 +165,30 @@ task.spawn(function()
     end
 end)
 
-for i = 1, 100 do
-    if ended then
-        break
-    end
+math.randomseed(tick())
 
-    local progress = i / 100
-    local labelIndex = math.clamp(math.ceil(i / 17), 1, #messages)
+local progress = 0
+local function getNextStep()
+    local step = math.random(4, 12) / 1000
+    if math.random(1, 8) == 1 then
+        return 0, math.random(80, 160) / 1000
+    end
+    return step, math.random(30, 90) / 1000
+end
+
+while running and gui.Parent and progress < 1 do
+    local step, delayTime = getNextStep()
+    progress = math.clamp(progress + step, 0, 1)
+    local labelIndex = math.clamp(math.ceil(progress * #messages), 1, #messages)
     status.Text = string.format("%s (%d%%)", messages[labelIndex], math.floor(progress * 100))
 
     TweenService:Create(barFill, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
         Size = UDim2.new(progress, 0, 1, 0)
     }):Play()
 
-    TweenService:Create(barGlow, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.new(math.clamp(progress - 0.01, 0, 0.98), 0, 0, 0)
-    }):Play()
-
-    task.wait(0.05)
+    task.wait(delayTime)
 end
 
 if not ended then
-    endLoading(false)
+    endLoading()
 end
